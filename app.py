@@ -1,8 +1,25 @@
 import streamlit as st
 from datetime import date
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
 
 # --- Page Config ---
-st.set_page_config(page_title="GDSC Event Registration", page_icon="🎉", layout="wide")
+st.set_page_config(
+    page_title="GDSC Event Registration",
+    page_icon="images/gdsc.png",  # local file path
+    layout="wide"
+)
+# --- Google Sheets setup ---
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
+client = gspread.authorize(creds)
+
+sheet = client.open("GDSC_Registrations").sheet1  # replace with your sheet name
+
+def add_registration(data):
+    """data = [Name, Email, Phone, Roll, Sem, Dept, Event]"""
+    sheet.append_row(data)
 
 # --- Custom CSS ---
 st.markdown("""
@@ -22,15 +39,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Events Data ---
+# --- Events Data ---
 events = [
-    {"name": "Google Sparks", "image": "images/1.png", "desc": "Run through the city streets.", 
-     "rules": ["Wear shoes", "Follow route", "No cheating"]},
-    {"name": "Tech Quizathon", "image": "images/2.png", "desc": "Short fun quiz run.", 
-     "rules": ["Friendly pace", "Hydrate", "No skipping"]},
-    {"name": "Robo War", "image": "images/3.png", "desc": "Battle of robots in arena.", 
-     "rules": ["Team register", "Safety first", "No outside damage"]},
-    {"name": "Startup Pitch", "image": "images/4.png", "desc": "Pitch your startup idea.", 
-     "rules": ["5 min pitch", "Slides allowed", "Q&A mandatory"]}
+    {"name": "Google Sparks", 
+     "image": "https://i.postimg.cc/QNvRLvvB/1.png", 
+     "desc": "Participate in a thrilling city-wide scavenger hunt and solve tech challenges along the way.", 
+     "rules": ["ppt must be made using google slides", "Follow the marked route", "No use of vehicles", "Stay in teams of 2-4"]},
+
+    {"name": "Tech Quizathon", 
+     "image": "https://i.postimg.cc/GhkgWtF0/2.png", 
+     "desc": "Test your tech knowledge in this rapid-fire quiz competition with prizes for winners.", 
+     "rules": ["Each team: max 3 members", "No external help allowed", "Time limit for each question", "Be on time"]},
+
+    {"name": "Robo War", 
+     "image": "https://i.postimg.cc/htsyGYZJ/3.png", 
+     "desc": "Showcase your robotics skills as your robots battle in an arena to claim victory.", 
+     "rules": ["Register in teams", "Use approved robot dimensions", "Safety first: goggles mandatory", "No external interference"]},
+
+    {"name": "Startup Pitch", 
+     "image": "https://i.postimg.cc/YCMDM73s/4.png", 
+     "desc": "Pitch your innovative startup idea to judges and get feedback or funding opportunities.", 
+     "rules": ["Pitch time: 5 minutes", "Slides allowed (max 5) ,", "Judges Q&A mandatory", "Original ideas only"]}
 ]
 
 # --- Session State ---
@@ -46,17 +75,21 @@ def go_back(): st.session_state.selected_event, st.session_state.view = None, "g
 
 # --- Header ---
 st.markdown("""
-    <div class="header-container">
-        <div class="header-title">🎉 GDSC Event Registration</div>
-        <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" width="120">
-    </div>
+  <div class="header-container" style="display:flex; align-items:center; gap:10px;">
+    <!-- New local logo -->
+    <img src="https://geetauniversity.com/assets/images/logo.png" width="80" alt="My Logo">
+    <div class="header-title">GDSC Event Registration</div>
+    <img src="https://i.postimg.cc/zGKXhCYY/gdsc.png" width="120" alt="Geeta University Logo">
+</div>
+
+
 """, unsafe_allow_html=True)
 
 # --- Gallery View ---
 if st.session_state.view == "gallery":
     st.markdown('<div class="center-container">', unsafe_allow_html=True)
     
-    st.subheader("🔥 Upcoming Events")
+    st.subheader("🔥Events")
     
     # Loop through events 2 per row
     for i in range(0, len(events), 2):
@@ -87,24 +120,26 @@ elif st.session_state.view == "form":
     st.markdown('<div class="center-container">', unsafe_allow_html=True)
     st.subheader(f"📝 Register for {st.session_state.selected_event}")
     
-    with st.form("register_form"):
-        name = st.text_input("Full Name")
-        email = st.text_input("Email Address")
-        dob = st.date_input("Date of Birth", min_value=date(1970,1,1))
-        phone = st.text_input("Mobile No.")
-        waiver = st.checkbox("I agree to the terms and conditions")
-        
-        col1, col2 = st.columns(2)
-        with col1: submit = st.form_submit_button("✅ Submit")
-        with col2: back = st.form_submit_button("⬅ Back")
-        
-        if back: go_back()
-        if submit:
-            if not waiver: st.error("⚠ Please agree to waiver")
-            elif not name or not email: st.error("⚠ Fill all fields")
-            else: st.success(f"🎉 Registered for {st.session_state.selected_event}!")
+with st.form("registration_form"):
+    full_name = st.text_input("Full Name", "")
+    email = st.text_input("Email Address", "")
+    contact = st.text_input("Contact Number", "")
+    roll = st.text_input("Roll Number", "")
+    depart = st.text_input("Department", "")
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    event = st.selectbox("Select Event", ["Google Sparks", "Tech Quizathon", "Robotics Showdown"])
+    waiver = st.checkbox("I agree to the rules and regulations")
+
+    # yahan submit button define karo
+    submit = st.form_submit_button("Submit")
+
+if submit:
+    if not waiver:
+        st.warning("You must agree to the rules to register.")
+    else:
+        # gsheet update function call karo
+        append_to_gsheet([full_name, email, contact, event])
+        st.success("Registration successful!")
 
 # --- Event Info View ---
 elif st.session_state.view == "info":
